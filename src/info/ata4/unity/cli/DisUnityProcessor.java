@@ -14,8 +14,8 @@ import info.ata4.unity.asset.AssetFile;
 import info.ata4.unity.assetbundle.AssetBundle;
 import info.ata4.unity.cli.action.Action;
 import info.ata4.unity.cli.action.BundleExtractAction;
-import info.ata4.unity.cli.action.BundleListAction;
 import info.ata4.unity.cli.action.BundleInjectAction;
+import info.ata4.unity.cli.action.BundleListAction;
 import info.ata4.unity.cli.action.DumpAction;
 import info.ata4.unity.cli.action.ExtractAction;
 import info.ata4.unity.cli.action.FixReferencesAction;
@@ -41,7 +41,8 @@ import java.util.logging.Logger;
 import org.apache.commons.io.FilenameUtils;
 
 /**
- *
+ * DisUnity file processor.
+ * 
  * @author Nico Bergemann <barracuda415 at yahoo.de>
  */
 public class DisUnityProcessor implements Runnable, FileVisitor<Path> {
@@ -74,27 +75,27 @@ public class DisUnityProcessor implements Runnable, FileVisitor<Path> {
         return COMMANDS.keySet();
     }
     
-    private final DisUnitySettings settings = new DisUnitySettings();
+    private final DisUnityOptions opts;
     private Action action;
-    
-    public DisUnitySettings getSettings() {
-        return settings;
+
+    public DisUnityProcessor(DisUnityOptions opts) {
+        this.opts = opts;
     }
     
     @Override
     public void run() {
         // parse command name
-        action = COMMANDS.get(settings.getCommand());
+        action = COMMANDS.get(opts.getCommand());
         if (action == null) {
-            L.log(Level.SEVERE, "Invalid command: {0}", settings.getCommand());
+            L.log(Level.SEVERE, "Invalid command: {0}", opts.getCommand());
             return;
         }
         
-        // set settings for action
-        action.setSettings(settings);
+        // set options for action
+        action.setOptions(opts);
         
         // process submitted files
-        for (Path file : settings.getFiles()) {
+        for (Path file : opts.getFiles()) {
             // skip non-existent files
             if (!Files.exists(file)) {
                 L.log(Level.WARNING, "File {0} doesn''t exist", file);
@@ -119,7 +120,7 @@ public class DisUnityProcessor implements Runnable, FileVisitor<Path> {
                         } else {
                             L.log(Level.WARNING,
                                     "Command \"{0}\" doesn''t support asset files, skipping {1}",
-                                    new Object[]{settings.getCommand(), file.getFileName()});
+                                    new Object[]{opts.getCommand(), file.getFileName()});
                         }
                     }
                 } catch (Exception ex) {
@@ -169,7 +170,7 @@ public class DisUnityProcessor implements Runnable, FileVisitor<Path> {
         if (action.requiresWriting()) {
             L.log(Level.WARNING,
                     "Command \"{0}\" can't edit assets in asset bundles, skipping {1}",
-                    new Object[]{settings.getCommand(), file.getFileName()});
+                    new Object[]{opts.getCommand(), file.getFileName()});
             return;
         }
         

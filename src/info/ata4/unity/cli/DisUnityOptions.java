@@ -15,10 +15,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
+ * DisUnity configuration class.
+ * 
  * @author Nico Bergemann <barracuda415 at yahoo.de>
  */
-public class DisUnitySettings {
+public class DisUnityOptions {
     
     private List<Path> files = new ArrayList<>();
     private ClassFilter classFilter;
