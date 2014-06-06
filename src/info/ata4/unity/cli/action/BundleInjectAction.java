@@ -11,7 +11,7 @@ package info.ata4.unity.cli.action;
 
 import info.ata4.io.buffer.ByteBufferUtils;
 import info.ata4.log.LogUtils;
-import info.ata4.unity.assetbundle.AssetBundle;
+import info.ata4.unity.asset.bundle.AssetBundle;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -48,7 +48,7 @@ public class BundleInjectAction extends Action {
         Path bundleDir = bundleFile.resolveSibling(bundleName);
         
         // there's no point in injection if the files haven't been extracted yet
-        if (!Files.exists(bundleDir)) {
+        if (Files.notExists(bundleDir)) {
             L.log(Level.WARNING, "Bundle directory {0} doesn''t exist!", bundleDir);
             return;
         }

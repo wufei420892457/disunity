@@ -1,5 +1,5 @@
 /*
- ** 2013 Dezember 08
+ ** 2013 December 08
  **
  ** The author disclaims copyright to this source code.  In place of
  ** a legal notice, here is a blessing:
@@ -7,7 +7,7 @@
  **    May you find forgiveness for yourself and forgive others.
  **    May you share freely, never taking more than you give.
  */
-package info.ata4.unity.cli.extract.handler.struct;
+package info.ata4.unity.struct;
 
 import info.ata4.io.DataInputReader;
 import info.ata4.io.DataOutputWriter;
@@ -20,14 +20,18 @@ import java.io.IOException;
  */
 public class Vector2f implements Struct {
     
-    protected final boolean half;
-    
-    public Vector2f(boolean half) {
-        this.half = half;
-    }
+    private boolean half;
     
     public float x;
     public float y;
+    
+    public boolean isHalf() {
+        return half;
+    }
+
+    public void setHalf(boolean half) {
+        this.half = half;
+    }
 
     @Override
     public void read(DataInputReader in) throws IOException {

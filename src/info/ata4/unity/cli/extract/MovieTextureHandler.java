@@ -7,12 +7,9 @@
  **    May you find forgiveness for yourself and forgive others.
  **    May you share freely, never taking more than you give.
  */
-package info.ata4.unity.cli.extract.handler;
+package info.ata4.unity.cli.extract;
 
 import info.ata4.log.LogUtils;
-import info.ata4.unity.asset.struct.AssetObjectPath;
-import info.ata4.unity.cli.extract.AssetExtractHandler;
-import info.ata4.unity.serdes.UnityBuffer;
 import info.ata4.unity.serdes.UnityObject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,10 +25,9 @@ public class MovieTextureHandler extends AssetExtractHandler {
     private static final Logger L = LogUtils.getLogger();
 
     @Override
-    public void extract(AssetObjectPath path, UnityObject obj) throws IOException {
+    public void extract(UnityObject obj) throws IOException {
         String name = obj.getValue("m_Name");
-        UnityBuffer movieData = obj.getValue("m_MovieData");
-        ByteBuffer movieBuffer = movieData.getBuffer();
+        ByteBuffer movieBuffer = obj.getValue("m_MovieData");
         
         String ext;
         String fourCC = new String(movieBuffer.array(), 0, 4);
@@ -46,7 +42,8 @@ public class MovieTextureHandler extends AssetExtractHandler {
                 L.log(Level.WARNING, "Unrecognized movie fourCC \"{0}\"", fourCC);
         }
         
-        setFileExtension(ext);
-        writeFile(movieBuffer, path.getPathID(), name);
+        setOutputFileName(name);
+        setOutputFileExtension(ext);
+        writeData(movieBuffer);
     }
 }

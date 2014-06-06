@@ -14,13 +14,13 @@ import info.ata4.io.DataOutputWriter;
 import info.ata4.io.buffer.ByteBufferUtils;
 import info.ata4.io.file.FileHandler;
 import info.ata4.log.LogUtils;
-import info.ata4.unity.asset.struct.AssetClassType;
 import info.ata4.unity.asset.struct.AssetHeader;
-import info.ata4.unity.asset.struct.AssetObjectPath;
-import info.ata4.unity.asset.struct.AssetObjectPathTable;
 import info.ata4.unity.asset.struct.AssetRef;
 import info.ata4.unity.asset.struct.AssetRefTable;
-import info.ata4.unity.assetbundle.AssetBundle;
+import info.ata4.unity.asset.struct.ObjectPath;
+import info.ata4.unity.asset.struct.ObjectPathTable;
+import info.ata4.unity.asset.struct.TypeTree;
+import info.ata4.unity.asset.bundle.AssetBundle;
 import info.ata4.unity.serdes.db.StructDatabase;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -45,8 +45,8 @@ public class AssetFile extends FileHandler {
     private static final Logger L = LogUtils.getLogger();
 
     private AssetHeader header = new AssetHeader();
-    private AssetClassType classType = new AssetClassType();
-    private AssetObjectPathTable objTable = new AssetObjectPathTable();
+    private TypeTree typeTree = new TypeTree();
+    private ObjectPathTable objTable = new ObjectPathTable();
     private AssetRefTable refTable = new AssetRefTable();
     private AssetBundle sourceBundle;
     
@@ -55,47 +55,53 @@ public class AssetFile extends FileHandler {
     
     @Override
     public void open(Path file) throws IOException {
-        // split asset files can't be opened conveniently using memory mapping
-        String fileName = file.getFileName().toString();  
-        if (fileName.endsWith(".split0")) {
-            load(file);
-        } else {
-            super.open(file);
-        }
+        load(file, true);
     }
     
     @Override
     public void load(Path file) throws IOException {
+        load(file, false);
+    }
+    
+    private void load(Path file, boolean map) throws IOException {
+        setSourceFile(file);
+        
         String fileName = file.getFileName().toString();
         
+        ByteBuffer bb;
+        
         // join split asset files before loading
-        if (fileName.endsWith(".split0")) {
+        if (FilenameUtils.getExtension(fileName).startsWith("split")) {
             fileName = FilenameUtils.removeExtension(fileName);
             List<Path> parts = new ArrayList<>();
             int splitIndex = 0;
-            Path part = file;
-            
+
             // collect all files with .split0 to .splitN extension
-            while (Files.exists(part)) {
-                parts.add(part);
-                splitIndex++;
+            while (true) {
                 String splitName = String.format("%s.split%d", fileName, splitIndex);
-                part = file.resolveSibling(splitName);
+                Path part = file.resolveSibling(splitName);
+                if (Files.notExists(part)) {
+                    break;
+                }
+                splitIndex++;
+                parts.add(part);
             }
             
             // load all parts into one byte buffer
-            ByteBuffer bb = ByteBufferUtils.load(parts);
-            
-            load(bb);
+            bb = ByteBufferUtils.load(parts);
+        } else if (map) {
+            bb = ByteBufferUtils.openReadOnly(file);
         } else {
-            super.load(file);
+            bb = ByteBufferUtils.load(file);
         }
         
         // load audio stream if existing
         Path audioStreamFile = file.resolveSibling(fileName + ".resS");
         if (Files.exists(audioStreamFile)) {
-            bbAudio = ByteBufferUtils.load(audioStreamFile);
+            bbAudio = ByteBufferUtils.openReadOnly(audioStreamFile);
         }
+        
+        load(bb);
     }
     
     @Override
@@ -106,11 +112,11 @@ public class AssetFile extends FileHandler {
         
         in.setSwap(true);
         
-        classType = new AssetClassType();
-        objTable = new AssetObjectPathTable();
+        typeTree = new TypeTree();
+        objTable = new ObjectPathTable();
         refTable = new AssetRefTable();
         
-        classType.setFormat(header.getFormat());
+        typeTree.setFormat(header.getFormat());
         
         switch (header.getFormat()) {
             case 5:
@@ -122,14 +128,14 @@ public class AssetFile extends FileHandler {
                 bbData = ByteBufferUtils.getSlice(bb, 0, treeOffset);
                 bb.position(treeOffset);
 
-                classType.read(in);
+                typeTree.read(in);
                 objTable.read(in);
                 refTable.read(in);
                 break;
                 
             case 9:
                 // first struct, then data
-                classType.read(in);
+                typeTree.read(in);
                 objTable.read(in);
                 refTable.read(in);
                 
@@ -141,7 +147,7 @@ public class AssetFile extends FileHandler {
         }
         
         // try to get struct from database if the embedded one is empty
-        if (classType.getTypeTree().isEmpty()) {
+        if (typeTree.getFields().isEmpty()) {
             L.info("Standalone asset file detected, using structure from database");
             StructDatabase.getInstance().fill(this);
         }
@@ -159,8 +165,8 @@ public class AssetFile extends FileHandler {
         DataOutputWriter outStruct = DataOutputWriter.newWriter(bosStruct);
         outStruct.setSwap(true);
         
-        classType.setFormat(header.getFormat());
-        classType.write(outStruct);
+        typeTree.setFormat(header.getFormat());
+        typeTree.write(outStruct);
         objTable.write(outStruct);
         refTable.write(outStruct);
         
@@ -226,11 +232,11 @@ public class AssetFile extends FileHandler {
         return header;
     }
 
-    public AssetClassType getClassType() {
-        return classType;
+    public TypeTree getTypeTree() {
+        return typeTree;
     }
 
-    public List<AssetObjectPath> getPaths() {
+    public List<ObjectPath> getPaths() {
         return objTable.getPaths();
     }
     
@@ -241,14 +247,14 @@ public class AssetFile extends FileHandler {
     public Set<Integer> getClassIDs() {
         Set<Integer> classIDs = new TreeSet<>();
         
-        for (AssetObjectPath path : objTable) {
+        for (ObjectPath path : objTable.getPaths()) {
             classIDs.add(path.getClassID());
         }
         
         return classIDs;
     }
     
-    public ByteBuffer getPathBuffer(AssetObjectPath path) {
+    public ByteBuffer getPathBuffer(ObjectPath path) {
         return ByteBufferUtils.getSlice(getDataBuffer(), path.getOffset(), path.getLength());
     }
 }

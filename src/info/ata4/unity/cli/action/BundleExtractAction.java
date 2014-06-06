@@ -11,7 +11,7 @@ package info.ata4.unity.cli.action;
 
 import info.ata4.io.buffer.ByteBufferUtils;
 import info.ata4.log.LogUtils;
-import info.ata4.unity.assetbundle.AssetBundle;
+import info.ata4.unity.asset.bundle.AssetBundle;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -54,7 +54,7 @@ public class BundleExtractAction extends Action {
             Path entryFile = getOutputDir().resolve(entryName);
             Path entryDir = entryFile.getParent();
             
-            if (!Files.exists(entryDir)) {
+            if (Files.notExists(entryDir)) {
                 Files.createDirectories(entryDir);
             }
             

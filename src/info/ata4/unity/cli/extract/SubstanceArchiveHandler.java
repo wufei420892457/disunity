@@ -7,11 +7,8 @@
  **    May you find forgiveness for yourself and forgive others.
  **    May you share freely, never taking more than you give.
  */
-package info.ata4.unity.cli.extract.handler;
+package info.ata4.unity.cli.extract;
 
-import info.ata4.unity.asset.struct.AssetObjectPath;
-import info.ata4.unity.cli.extract.AssetExtractHandler;
-import info.ata4.unity.serdes.UnityBuffer;
 import info.ata4.unity.serdes.UnityObject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,15 +20,15 @@ import java.nio.ByteBuffer;
 public class SubstanceArchiveHandler extends AssetExtractHandler {
 
     public SubstanceArchiveHandler() {
-        setFileExtension("sbsar");
+        setOutputFileExtension("sbsar");
     }
 
     @Override
-    public void extract(AssetObjectPath path, UnityObject obj) throws IOException {
+    public void extract(UnityObject obj) throws IOException {
         String name = obj.getValue("m_Name");
-        UnityBuffer packageData = obj.getValue("m_PackageData");
-        ByteBuffer packageBuffer = packageData.getBuffer();
+        ByteBuffer packageBuffer = obj.getValue("m_PackageData");
         
-        writeFile(packageBuffer, path.getPathID(), name);
+        setOutputFileName(name);
+        writeData(packageBuffer);
     }
 }

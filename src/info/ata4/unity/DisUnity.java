@@ -10,7 +10,7 @@
 package info.ata4.unity;
 
 /**
- * DisUnity main processing class.
+ * DisUnity program metadata.
  * 
  * @author Nico Bergemann <barracuda415 at yahoo.de>
  */
@@ -25,7 +25,7 @@ public class DisUnity {
     }
     
     public static String getVersion() {
-        return "0.3.0";
+        return "0.3.1";
     }
     
     public static String getSignature() {

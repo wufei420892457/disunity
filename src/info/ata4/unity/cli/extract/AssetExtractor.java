@@ -12,17 +12,9 @@ package info.ata4.unity.cli.extract;
 import info.ata4.io.buffer.ByteBufferUtils;
 import info.ata4.log.LogUtils;
 import info.ata4.unity.asset.AssetFile;
-import info.ata4.unity.asset.struct.AssetClassType;
-import info.ata4.unity.asset.struct.AssetObjectPath;
+import info.ata4.unity.asset.struct.ObjectPath;
+import info.ata4.unity.asset.struct.TypeTree;
 import info.ata4.unity.cli.classfilter.ClassFilter;
-import info.ata4.unity.cli.extract.handler.AudioClipHandler;
-import info.ata4.unity.cli.extract.handler.FontHandler;
-import info.ata4.unity.cli.extract.handler.MeshHandler;
-import info.ata4.unity.cli.extract.handler.MovieTextureHandler;
-import info.ata4.unity.cli.extract.handler.SubstanceArchiveHandler;
-import info.ata4.unity.cli.extract.handler.TextAssetHandler;
-import info.ata4.unity.cli.extract.handler.Texture2DHandler;
-import info.ata4.unity.serdes.DeserializationException;
 import info.ata4.unity.serdes.Deserializer;
 import info.ata4.unity.serdes.UnityObject;
 import info.ata4.unity.util.ClassID;
@@ -55,7 +47,7 @@ public class AssetExtractor {
      * @return Name string of the object or null if it doesn't have a name or if
      *         the deserialization failed.
      */
-    public static String getObjectName(AssetFile asset, AssetObjectPath path) {
+    public static String getObjectName(AssetFile asset, ObjectPath path) {
         Deserializer deser = new Deserializer(asset);
         String name = null;
         
@@ -122,15 +114,15 @@ public class AssetExtractor {
     }
 
     public void extract(boolean raw) throws IOException {
-        List<AssetObjectPath> paths = asset.getPaths();
+        List<ObjectPath> paths = asset.getPaths();
         Deserializer deser = new Deserializer(asset);
 
         for (AssetExtractHandler extractHandler : extractHandlerMap.values()) {
             extractHandler.setAssetFile(asset);
-            extractHandler.setExtractDir(outputDir);
+            extractHandler.setOutputDir(outputDir);
         }
         
-        for (AssetObjectPath path : paths) {
+        for (ObjectPath path : paths) {
             // skip filtered classes
             if (cf != null && !cf.accept(path)) {
                 continue;
@@ -142,7 +134,7 @@ public class AssetExtractor {
             if (raw) {
                 String assetFileName = String.format("%06d.bin", path.getPathID());
                 Path classDir = outputDir.resolve(className);
-                if (!Files.exists(classDir)) {
+                if (Files.notExists(classDir)) {
                     Files.createDirectory(classDir);
                 }
                 
@@ -161,14 +153,19 @@ public class AssetExtractor {
                 AssetExtractHandler handler = getHandler(className);
                 
                 if (handler != null) {
+                    UnityObject obj;
+                    
                     try {
-                        UnityObject obj = deser.deserialize(path);
-                        handler.extract(path, obj);
-                    } catch (DeserializationException ex) {
-                        L.log(Level.WARNING, "Can't deserialize " + path, ex);
+                        obj = deser.deserialize(path);
                     } catch (IOException ex) {
-                        L.log(Level.WARNING, "Can't read or write " + path, ex);
-                    } catch (Exception ex) {
+                        L.log(Level.WARNING, "Can't deserialize " + path, ex);
+                        continue;
+                    }
+                    
+                    try {
+                        handler.setObjectPath(path);
+                        handler.extract(obj);
+                    } catch (IOException ex) {
                         L.log(Level.WARNING, "Can't extract " + path, ex);
                     }
                 }
@@ -186,17 +183,16 @@ public class AssetExtractor {
     }
 
     public void split() throws IOException {
-        List<AssetObjectPath> pathTable = asset.getPaths();
-        AssetClassType classType = asset.getClassType();
-        ByteBuffer bb = asset.getDataBuffer();
-        
+        List<ObjectPath> pathTable = asset.getPaths();
+        TypeTree typeTree = asset.getTypeTree();
+
         // assets with just one object can't be split any further
         if (pathTable.size() == 1) {
             L.warning("Asset doesn't contain sub-assets!");
             return;
         }
         
-        for (AssetObjectPath path : pathTable) {
+        for (ObjectPath path : pathTable) {
             // skip filtered classes
             if (cf != null && !cf.accept(path)) {
                 continue;
@@ -207,7 +203,7 @@ public class AssetExtractor {
             AssetFile subAsset = new AssetFile();
             subAsset.getHeader().setFormat(asset.getHeader().getFormat());
             
-            AssetObjectPath subFieldPath = new AssetObjectPath();
+            ObjectPath subFieldPath = new ObjectPath();
             subFieldPath.setClassID1(path.getClassID1());
             subFieldPath.setClassID2(path.getClassID2());
             subFieldPath.setLength(path.getLength());
@@ -215,18 +211,16 @@ public class AssetExtractor {
             subFieldPath.setPathID(1);
             subAsset.getPaths().add(subFieldPath);
             
-            AssetClassType subClassType = subAsset.getClassType();
-            subClassType.setEngineVersion(classType.getEngineVersion());
-            subClassType.setVersion(-2);
-            subClassType.setFormat(classType.getFormat());
-            subClassType.getTypeTree().put(path.getClassID(), classType.getTypeTree().get(path.getClassID()));
+            TypeTree subTypeTree = subAsset.getTypeTree();
+            subTypeTree.setEngineVersion(typeTree.getEngineVersion());
+            subTypeTree.setVersion(-2);
+            subTypeTree.setFormat(typeTree.getFormat());
+            subTypeTree.getFields().put(path.getClassID(), typeTree.getFields().get(path.getClassID()));
 
-            // create a byte buffer for the data area
-            ByteBuffer bbAsset = ByteBufferUtils.getSlice(bb, path.getOffset(), path.getLength());
-            subAsset.setDataBuffer(bbAsset);
+            subAsset.setDataBuffer(asset.getPathBuffer(path));
             
             Path subAssetDir = outputDir.resolve(className);
-            if (!Files.exists(subAssetDir)) {
+            if (Files.notExists(subAssetDir)) {
                 Files.createDirectory(subAssetDir);
             }
             
@@ -242,7 +236,7 @@ public class AssetExtractor {
             subAssetName += ".asset";
             
             Path subAssetFile = subAssetDir.resolve(subAssetName);
-            if (Files.exists(subAssetFile)) {
+            if (Files.notExists(subAssetFile)) {
                 L.log(Level.INFO, "Writing {0}", subAssetFile);
                 subAsset.save(subAssetFile);
             }

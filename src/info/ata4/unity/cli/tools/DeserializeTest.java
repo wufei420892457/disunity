@@ -11,8 +11,8 @@ package info.ata4.unity.cli.tools;
 
 import info.ata4.log.LogUtils;
 import info.ata4.unity.asset.AssetFile;
-import info.ata4.unity.asset.struct.AssetObjectPath;
-import info.ata4.unity.assetbundle.AssetBundle;
+import info.ata4.unity.asset.bundle.AssetBundle;
+import info.ata4.unity.asset.struct.ObjectPath;
 import info.ata4.unity.serdes.Deserializer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -59,6 +59,13 @@ public class DeserializeTest {
             ab.load(file);
             
             for (Map.Entry<String, ByteBuffer> entry : ab.getEntries().entrySet()) {
+                String name = entry.getKey();
+                
+                // skip libraries
+                if (name.endsWith(".dll") || name.endsWith(".mdb")) {
+                    continue;
+                }
+                
                 AssetFile asset = new AssetFile();
                 asset.load(entry.getValue());
                 testAsset(asset);
@@ -80,7 +87,7 @@ public class DeserializeTest {
     public void testAsset(AssetFile asset) {
         Deserializer deser = new Deserializer(asset);
 
-        for (AssetObjectPath path : asset.getPaths()) {
+        for (ObjectPath path : asset.getPaths()) {
             // skip MonoBehaviours
             if (path.isScript()) {
                 continue;

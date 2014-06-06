@@ -1,5 +1,5 @@
 /*
- ** 2013 Dezember 08
+ ** 2013 December 08
  **
  ** The author disclaims copyright to this source code.  In place of
  ** a legal notice, here is a blessing:
@@ -7,37 +7,37 @@
  **    May you find forgiveness for yourself and forgive others.
  **    May you share freely, never taking more than you give.
  */
-package info.ata4.unity.cli.extract.handler.struct;
+package info.ata4.unity.struct;
 
 import info.ata4.io.DataInputReader;
 import info.ata4.io.DataOutputWriter;
-import info.ata4.io.Struct;
 import java.io.IOException;
 
 /**
  *
  * @author Nico Bergemann <barracuda415 at yahoo.de>
  */
-public class Color32 implements Struct {
+public class Vector3f extends Vector2f {
     
-    public int r;
-    public int g;
-    public int b;
-    public int a;
+    public float z;
 
     @Override
     public void read(DataInputReader in) throws IOException {
-        r = in.readUnsignedByte();
-        g = in.readUnsignedByte();
-        b = in.readUnsignedByte();
-        a = in.readUnsignedByte();
+        super.read(in);
+        if (isHalf()) {
+            z = in.readHalf();
+        } else {
+            z = in.readFloat();
+        }
     }
 
     @Override
     public void write(DataOutputWriter out) throws IOException {
-        out.writeByte(r);
-        out.writeByte(g);
-        out.writeByte(b);
-        out.writeByte(a);
+        super.write(out);
+        if (isHalf()) {
+            out.writeHalf(z);
+        } else {
+            out.writeFloat(z);
+        }
     }
 }
